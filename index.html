@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sudoku</title>
+    <style>
+        canvas {
+            border: 1px solid black;
+            display: block;
+            margin: 0 auto;
+        }
+        button {
+            display: block;
+            margin: 10px auto;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="sudokuBoard" width="450" height="450"></canvas>
+    <button id="checkSolution">Verificar Solución</button>
+    <script>
+        const canvas = document.getElementById('sudokuBoard');
+        const ctx = canvas.getContext('2d');
+        const cellSize = 50;
+        let board = [];
+        let solution = [];
+        let selectedCell = null;
+
+        function generateSudoku() {
+            // Initialize empty board
+            for (let i = 0; i < 9; i++) {
+                board[i] = new Array(9).fill(0);
+                solution[i] = new Array(9).fill(0);
+            }
+
+            // Fill diagonal 3x3 squares
+            fillDiagonal();
+
+            // Fill remaining cells
+            fillRemaining(0, 3);
+
+            // Copy solution before removing numbers
+            for (let i = 0; i < 9; i++) {
+                for (let j = 0; j < 9; j++) {
+                    solution[i][j] = board[i][j];
+                }
+            }
+
+            // Remove numbers to create puzzle
+            removeNumbers();
+        }
+
+        function fillDiagonal() {
+            for (let i = 0; i < 9; i += 3) {
+                fillBox(i, i);
+            }
+        }
+
+        function fillBox(row, col) {
+            let num;
+            for (let i = 0; i < 3; i++) {
+                for (let j = 0; j < 3; j++) {
+                    do {
+                        num = Math.floor(Math.random() * 9) + 1;
+                    } while (!isSafe(row + i, col + j, num));
+                    board[row + i][col + j] = num;
+                }
+            }
+        }
+
+        function fillRemaining(i, j) {
+            if (j >= 9 && i < 8) {
+                i = i + 1;
+                j = 0;
+            }
+            if (i >= 9 && j >= 9) return true;
+            if (i < 3) {
+                if (j < 3) j = 3;
+            } else if (i < 6) {
+                if (j === Math.floor(i / 3) * 3) j = j + 3;
+            } else {
+                if (j === 6) {
+                    i = i + 1;
+                    j = 0;
+                    if (i >= 9) return true;
+                }
+            }
+            for (let num = 1; num <= 9; num++) {
+                if (isSafe(i, j, num)) {
+                    board[i][j] = num;
+                    if (fillRemaining(i, j + 1)) return true;
+                    board[i][j] = 0;
+                }
+            }
+            return false;
+        }
+
+        function isSafe(row, col, num) {
+            return isRowSafe(row, num) && isColSafe(col, num) && isBoxSafe(row - row % 3, col - col % 3, num);
+        }
+
+        function isRowSafe(row, num) {
+            for (let col = 0; col < 9; col++)
+                if (board[row][col] === num) return false;
+            return true;
+        }
+
+        function isColSafe(col, num) {
+            for (let row = 0; row < 9; row++)
+                if (board[row][col] === num) return false;
+            return true;
+        }
+
+        function isBoxSafe(boxStartRow, boxStartCol, num) {
+            for (let row = 0; row < 3; row++)
+                for (let col = 0; col < 3; col++)
+                    if (board[row + boxStartRow][col + boxStartCol] === num) return false;
+            return true;
+        }
+
+        function removeNumbers() {
+            let count = 40;  // Number of cells to remove
+            while (count > 0) {
+                let cellId = Math.floor(Math.random() * 81);
+                let i = Math.floor(cellId / 9);
+                let j = cellId % 9;
+                if (board[i][j] !== 0) {
+                    count--;
+                    board[i][j] = 0;
+                }
+            }
+        }
+
+        function drawBoard() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            for (let i = 0; i < 9; i++) {
+                for (let j = 0; j < 9; j++) {
+                    ctx.strokeStyle = '#000';
+                    ctx.strokeRect(j * cellSize, i * cellSize, cellSize, cellSize);
+
+                    if (board[i][j] !== 0) {
+                        ctx.fillStyle = '#000';
+                        ctx.font = '30px Arial';
+                        ctx.fillText(board[i][j], j * cellSize + 15, (i + 1) * cellSize - 15);
+                    }
+                }
+            }
+
+            // Draw thicker lines for 3x3 boxes
+            ctx.beginPath();
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 3;
+            for (let i = 0; i <= 9; i += 3) {
+                ctx.moveTo(i * cellSize, 0);
+                ctx.lineTo(i * cellSize, canvas.height);
+                ctx.moveTo(0, i * cellSize);
+                ctx.lineTo(canvas.width, i * cellSize);
+            }
+            ctx.stroke();
+        }
+
+        canvas.addEventListener('click', (event) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = event.clientX - rect.left;
+            const y = event.clientY - rect.top;
+            const col = Math.floor(x / cellSize);
+            const row = Math.floor(y / cellSize);
+
+            if (board[row][col] === 0) {
+                selectedCell = { row, col };
+            } else {
+                selectedCell = null;
+            }
+        });
+
+        document.addEventListener('keydown', (event) => {
+            if (selectedCell && event.key >= '1' && event.key <= '9') {
+                board[selectedCell.row][selectedCell.col] = parseInt(event.key);
+                drawBoard();
+            }
+        });
+
+        document.getElementById('checkSolution').addEventListener('click', () => {
+            let correct = true;
+            for (let i = 0; i < 9; i++) {
+                for (let j = 0; j < 9; j++) {
+                    if (board[i][j] !== solution[i][j]) {
+                        correct = false;
+                        break;
+                    }
+                }
+                if (!correct) break;
+            }
+            alert(correct ? '¡Solución correcta!' : 'Solución incorrecta. Sigue intentando.');
+        });
+
+        generateSudoku();
+        drawBoard();
+    </script>
+</body>
+</html>
